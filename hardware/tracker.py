@@ -8,10 +8,11 @@ import config
 
 
 class AntennaTracker:
-    def __init__(self, port="COM3", baud=57600, pan_channel=1, tilt_channel=2):
+    def __init__(self, port="COM3", baud=57600, pan_channel=1, tilt_channel=2, pixhawk_mode=True):
         self.conn = None
         self.pan_channel = pan_channel
         self.tilt_channel = tilt_channel
+        self.pixhawk_mode = pixhawk_mode
 
         if not HAS_MAVLINK:
             print("pymavlink not installed — mock mode (no servo commands)")
@@ -22,6 +23,8 @@ class AntennaTracker:
             self.conn.wait_heartbeat(timeout=10)
             print(f"Tracker connected on {port} (baud={baud})")
             print(f"  Pan: ch{pan_channel}, Tilt: ch{tilt_channel}")
+            if pixhawk_mode:
+                print("  Pixhawk mode: tilt inverted (+ = UP)")
         except Exception as e:
             print(f"Tracker connection failed ({e}) — mock mode")
             self.conn = None
@@ -48,6 +51,8 @@ class AntennaTracker:
 
     def send_tilt(self, angle_deg):
         clamped = max(-90.0, min(90.0, angle_deg))
+        if self.pixhawk_mode:
+            clamped = -clamped
         pwm = self._angle_to_pwm(clamped)
         self._send_servo(self.tilt_channel, pwm)
         mode = "MAVLink" if self.conn else "MOCK"
