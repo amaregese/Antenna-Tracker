@@ -17,8 +17,9 @@ def main():
     parser.add_argument("--model", type=str, default="models/yolo11n.pt", help="YOLO model path")
     parser.add_argument("--port", type=str, default="COM3", help="Tracker serial port")
     parser.add_argument("--baud", type=int, default=57600, help="Serial baud rate")
-    parser.add_argument("--pan-channel", type=int, default=1, help="Pan servo channel")
-    parser.add_argument("--tilt-channel", type=int, default=2, help="Tilt servo channel")
+    parser.add_argument("--pan-channel", type=int, default=2, help="Pan servo channel (Pixhawk TrackerYaw=ch2)")
+    parser.add_argument("--tilt-channel", type=int, default=1, help="Tilt servo channel (Pixhawk TrackerPitch=ch1)")
+    parser.add_argument("--no-pixhawk-mode", action="store_true", help="Disable Pixhawk tilt inversion")
     args = parser.parse_args()
 
     if args.conf_threshold is not None:
@@ -30,7 +31,7 @@ def main():
     print(f"Model: {args.model}")
     print(f"Confidence: {config.CONFIDENCE_THRESHOLD}")
     print(f"Tracker port: {args.port} (baud={args.baud})")
-    print(f"Pan ch:{args.pan_channel} Tilt ch:{args.tilt_channel}")
+    print(f"Pan ch:{args.pan_channel} Tilt ch:{args.tilt_channel}  Pixhawk mode:{not args.no_pixhawk_mode}")
     print("=" * 50)
 
     cap = initialize_capture(args.camera_index)
@@ -39,7 +40,8 @@ def main():
         sys.exit(1)
 
     detector = Detector(args.model)
-    tracker = AntennaTracker(args.port, args.baud, args.pan_channel, args.tilt_channel)
+    tracker = AntennaTracker(args.port, args.baud, args.pan_channel, args.tilt_channel,
+                             pixhawk_mode=not args.no_pixhawk_mode)
     visualizer = TrackerVisualizer()
 
     cv2.namedWindow(config.WINDOW_NAME)
