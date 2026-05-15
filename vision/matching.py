@@ -51,6 +51,62 @@ def compute_color_histogram_3d(frame, obj):
     return hist
 
 
+def compute_color_signature(frame, obj):
+    roi = get_roi(frame, obj)
+    if roi is None or roi.size == 0:
+        return None
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    pixels = hsv.reshape(-1, 3).astype(np.float32)
+    n_clusters = min(3, len(pixels))
+    if n_clusters < 1:
+        return None
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+    _, labels, centers = cv2.kmeans(pixels, n_clusters, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    counts = np.bincount(labels.flatten()).astype(np.float32)
+    weights = (counts / counts.sum()).tolist()
+    order = np.argsort(-np.array(weights))
+    return {
+        "centers": centers[order].tolist(),
+        "weights": [weights[i] for i in order],
+    }
+
+
+def compare_color_signatures(sig1, sig2):
+    if sig1 is None or sig2 is None:
+        return 0.0
+    centers1 = np.array(sig1["centers"])
+    centers2 = np.array(sig2["centers"])
+    if len(centers1) == 0 or len(centers2) == 0:
+        return 0.0
+    weights1 = np.array(sig1["weights"])
+    score = 0.0
+    hsv_ranges = np.array([180.0, 256.0, 256.0])
+    for i, c1 in enumerate(centers1):
+        dists = np.sum(np.abs(centers2 - c1) / hsv_ranges, axis=1)
+        best_sim = max(0.0, 1.0 - np.min(dists) * 2.5)
+        score += best_sim * weights1[i]
+    return float(min(1.0, score))
+
+
+def get_object_contour(frame, obj):
+    roi = get_roi(frame, obj)
+    if roi is None:
+        return None
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    return max(contours, key=cv2.contourArea)
+
+
+def match_shapes_contour(contour1, contour2):
+    if contour1 is None or contour2 is None:
+        return 0.0
+    dist = cv2.matchShapes(contour1, contour2, cv2.CONTOURS_MATCH_I2, 0.0)
+    return float(max(0.0, 1.0 - dist * 0.5))
+
+
 def compute_region_histograms(frame, obj):
     roi = get_roi(frame, obj)
     if roi is None:
