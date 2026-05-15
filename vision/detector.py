@@ -6,6 +6,7 @@ from ultralytics import YOLO
 import config
 from .matching import (
     clamp_box,
+    compute_mean_std_hsv,
     extract_features,
     score_detection_match,
     score_reacquisition_match,
